@@ -1,10 +1,14 @@
 scriptencoding cp932
+
 command! -nargs=? MkArbeitReport call <SID>MkArbeitReport(<f-args>)
 
-function! s:MkArbeitReport(...) abort
+" アルバイター一覧
+let g:arbeiters = [
+			\ { 'name': "山田君", 'def_begin': '1330', 'def_end': '1730' },
+			\ { 'name': "岡野君", 'def_begin': '1030', 'def_end': '1730' },
+			\ ]
 
-	" アルバイター一覧
-	let l:arbeiters = ["山田君", "岡野君"]
+function! s:MkArbeitReport(...) abort
 
 	" 初期カーソル
 	let l:init_cursol_line_no = 6
@@ -36,17 +40,20 @@ function! s:MkArbeitReport(...) abort
 	let l:year = str2nr(strftime('%Y', l:base_date))
 	let l:month = str2nr(strftime('%m', l:base_date))
 	let l:day = str2nr(strftime('%d', l:base_date))
+	let l:week = []
 	for l:idx in range(7)
 		let l:timestamp = <SID>Localtime(l:year, l:month, l:day + l:idx, 0, 0, 0)
 		let l:weekday = str2nr(strftime('%w', l:timestamp))
 		if 1 == l:weekday
-			let l:monday = l:timestamp
-			let l:friday = <SID>Localtime(l:year, l:month, l:day + l:idx + 4, 0, 0, 0)
+			for l:weekidx in range(5)
+				call add(l:week, <SID>Localtime(l:year, l:month, l:day + l:idx + l:weekidx, 0, 0, 0) )
+			endfor
+			break
 		endif
 	endfor
 
-	let l:monday_str = printf("%d/%d", str2nr(strftime('%m', l:monday)), str2nr(strftime('%d', l:monday)))	" 01/10 -> 1/10 に変換
-	let l:friday_str = printf("%d/%d", str2nr(strftime('%m', l:friday)), str2nr(strftime('%d', l:friday)))	" 01/10 -> 1/10 に変換
+	let l:monday_str = printf("%d/%d", str2nr(strftime('%m', l:week[0])), str2nr(strftime('%d', l:week[0])))	" 01/10 -> 1/10 に変換
+	let l:friday_str = printf("%d/%d", str2nr(strftime('%m', l:week[4])), str2nr(strftime('%d', l:week[4])))	" 01/10 -> 1/10 に変換
 	" }}}
 
 	let l:lines = []
@@ -55,10 +62,13 @@ function! s:MkArbeitReport(...) abort
 	call add(l:lines, "")
 	call add(l:lines, "2Fのアルバイトの出社予定を報告します。")
 	call add(l:lines, "")
-	for l:arbeiter in l:arbeiters
-		call add(l:lines, l:arbeiter)
+
+	for l:arbeiter in g:arbeiters
+		call add(l:lines, l:arbeiter.name)
+		call extend(l:lines, <SID>GetArbeiterReport(l:week, l:arbeiter.name, l:arbeiter.def_begin, l:arbeiter.def_end ))
 		call add(l:lines, "")
 	endfor
+
 	call add(l:lines, "以上です。")
 	call add(l:lines, "【アルバイト】2Fアルバイト予定 " . l:monday_str . "-" . l:friday_str)
 
@@ -69,6 +79,69 @@ function! s:MkArbeitReport(...) abort
 	call cursor(l:init_cursol_line_no, 1)
 	command! -buffer -nargs=* AppendReportLine call <SID>AppendReportLine(<f-args>)
 	nmap <buffer> <silent> <C-C> :%y*<CR>
+endfunction
+
+function! s:GetArbeiterReport(week, name, def_begin, def_end) abort
+
+	let l:lines = []
+	for l:cnt in range(5)
+
+		let l:prompt = "0: 終了"
+		for l:idx in range(len(a:week))
+			let l:w = a:week[l:idx]
+			let l:prompt .= printf( ', %d: %s', l:idx+1, strftime('%m/%d（%a）', l:w) )
+		endfor
+
+		redraw
+		echo a:name . ": " . a:def_begin . " - " . a:def_end
+		echo l:prompt
+		if len ( l:lines ) == 0
+			echo "exp: 2 - 1630"
+		else
+			for l:line in l:lines
+				echo l:line
+			endfor
+		endif
+
+		let l:select = ""
+		call inputsave()
+		let l:select = input("> ")
+		call inputrestore()
+
+		let l:select_list = ""
+		let l:select_list = split( l:select )
+
+		if len(l:select_list) >= 3 && l:select_list[2] !=? '-'
+			let l:end_time = l:select_list[2]
+		else
+			let l:end_time = a:def_end
+		endif
+
+		if len(l:select_list) >= 2 && l:select_list[1] !=? '-'
+			let l:begin_time = l:select_list[1]
+		else
+			let l:begin_time = a:def_begin
+		endif
+
+		if len(l:select_list) >= 1
+			let l:select_no = str2nr(l:select_list[0])
+		else
+			let l:select_no = 0
+		endif
+
+		if l:select_no == 0
+			break
+		else
+			call add( l:lines, <SID>AppendReportLine( strftime("%m/%d", a:week[l:select_no-1]), l:begin_time, l:end_time ) )
+		endif
+
+	endfor
+
+	if len(l:lines ) == 0
+		call add( l:lines, <SID>AppendReportLine() )
+	endif
+
+	return l:lines
 endfunction
 
 function! s:AppendReportLine(...) abort
@@ -112,7 +185,10 @@ function! s:AppendReportLine(...) abort
 		" 来週の予定なし
 		let l:line = "来週の出社予定はありません。"
 	endif
-	call append( line('.')-1, l:line )
+
+	"call append( line('.')-1, l:line )
+
+	return l:line
 endfunction
 
 function! s:ParseTime(time) abort
