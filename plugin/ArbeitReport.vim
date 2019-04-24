@@ -58,24 +58,31 @@ function! s:MkArbeitReport(...) abort
 
 	let l:lines = []
 
+	new
+	setlocal bt=nofile
+
 	call add(l:lines, "お疲れ様です。谷川です。")
 	call add(l:lines, "")
 	call add(l:lines, "2Fのアルバイトの出社予定を報告します。")
 	call add(l:lines, "")
 
+	call append(line('$'), l:lines)
+	1 delete _
+	let l:lines = []
+
 	for l:arbeiter in g:arbeiters
 		call add(l:lines, l:arbeiter.name)
 		call extend(l:lines, <SID>GetArbeiterReport(l:week, l:arbeiter.name, l:arbeiter.def_begin, l:arbeiter.def_end ))
 		call add(l:lines, "")
+		call append(line('$'), l:lines)
+		let l:lines = []
 	endfor
 
 	call add(l:lines, "以上です。")
 	call add(l:lines, "【アルバイト】2Fアルバイト予定 " . l:monday_str . "-" . l:friday_str)
+	call append(line('$'), l:lines)
+	let l:lines = []
 
-	new
-	setlocal bt=nofile
-	call append(line('.'), l:lines)
-	1 delete _
 	call cursor(l:init_cursol_line_no, 1)
 	command! -buffer -nargs=* AppendReportLine call <SID>AppendReportLine(<f-args>)
 	nmap <buffer> <silent> <C-C> :%y*<CR>
