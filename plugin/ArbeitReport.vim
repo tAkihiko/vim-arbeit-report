@@ -190,7 +190,7 @@ function! s:AppendReportLine(...) abort
 		let l:line = l:month ."/". l:day ."(". l:weekday .")@". <SID>ParseTime(l:begin_time) ."-". <SID>ParseTime(l:end_time)
 	else
 		" —ˆT‚Ì—\’è‚È‚µ
-		let l:line = "—ˆT‚ÌoĞ—\’è‚Í‚ ‚è‚Ü‚¹‚ñB"
+		let l:line = "oĞ—\’è‚Í‚ ‚è‚Ü‚¹‚ñB"
 	endif
 
 	"call append( line('.')-1, l:line )
